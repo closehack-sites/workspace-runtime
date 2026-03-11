@@ -237,6 +237,75 @@ async function handleApi(req, res) {
     return;
   }
 
+  // POST /api/workspace/build — static export build
+  if (route === "/build" && req.method === "POST") {
+    try {
+      // Ensure next.config has output: "export"
+      const configPath = path.join(WORKSPACE_DIR, "next.config.ts");
+      const mjsConfigPath = path.join(WORKSPACE_DIR, "next.config.mjs");
+      const jsConfigPath = path.join(WORKSPACE_DIR, "next.config.js");
+
+      let actualConfigPath = configPath;
+      if (fs.existsSync(mjsConfigPath)) actualConfigPath = mjsConfigPath;
+      else if (fs.existsSync(jsConfigPath)) actualConfigPath = jsConfigPath;
+
+      // Read current config and inject output: "export" if not present
+      if (fs.existsSync(actualConfigPath)) {
+        let configContent = fs.readFileSync(actualConfigPath, "utf-8");
+        if (!configContent.includes('output')) {
+          configContent = configContent.replace(
+            /const nextConfig.*?=.*?\{/,
+            '$&\n  output: "export",'
+          );
+          fs.writeFileSync(actualConfigPath, configContent, "utf-8");
+        }
+      }
+
+      console.log("[workspace-api] Running next build (static export)...");
+      await run("npx next build", { cwd: WORKSPACE_DIR });
+      console.log("[workspace-api] Build complete");
+
+      // Read all files from the output directory
+      const outDir = path.join(WORKSPACE_DIR, "out");
+      if (!fs.existsSync(outDir)) {
+        json(res, 500, { error: "Build output directory 'out' not found" });
+        return;
+      }
+
+      // Scan output files (no filtering — these are built assets)
+      function scanBuildOutput(dir, rel = "") {
+        const results = [];
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+          if (entry.isDirectory()) {
+            results.push(...scanBuildOutput(path.join(dir, entry.name), relPath));
+          } else {
+            results.push(relPath);
+          }
+        }
+        return results;
+      }
+
+      const outputFiles = scanBuildOutput(outDir);
+      const files = {};
+      for (const relPath of outputFiles) {
+        const content = fs.readFileSync(path.join(outDir, relPath));
+        files[relPath] = content.toString("base64");
+      }
+
+      json(res, 200, {
+        success: true,
+        fileCount: outputFiles.length,
+        files,
+      });
+    } catch (err) {
+      console.error("[workspace-api] Build failed:", err.message);
+      json(res, 500, { error: err.message });
+    }
+    return;
+  }
+
   // GET /api/workspace/status — health check
   if (route === "/status" && req.method === "GET") {
     json(res, 200, { status: "running", workspace: WORKSPACE_DIR });
