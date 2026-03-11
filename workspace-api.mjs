@@ -10,7 +10,7 @@ import http from "node:http";
 import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execSync, spawn as spawnChild } from "node:child_process";
 
 const API_PORT = parseInt(process.env.PORT || "3000", 10);
 const DEV_PORT = 3001;
@@ -59,6 +59,25 @@ function scanFiles(dir, rel = "") {
 }
 
 // ── Request helpers ─────────────────────────────────────────────────────
+
+/** Run a shell command asynchronously. Returns stdout. */
+function run(cmd, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const proc = spawnChild("sh", ["-c", cmd], {
+      cwd: opts.cwd || WORKSPACE_DIR,
+      env: process.env,
+    });
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (d) => (stdout += d));
+    proc.stderr.on("data", (d) => (stderr += d));
+    proc.on("close", (code) => {
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error(stderr.trim() || `Exit code ${code}`));
+    });
+    proc.on("error", reject);
+  });
+}
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -174,7 +193,7 @@ async function handleApi(req, res) {
     if (packageJsonChanged) {
       try {
         console.log("[workspace-api] package.json changed, running npm install...");
-        execSync("npm install", { cwd: WORKSPACE_DIR, stdio: "pipe", timeout: 120000, maxBuffer: 10 * 1024 * 1024 });
+        await run("npm install");
         console.log("[workspace-api] npm install complete");
       } catch (err) {
         console.error("[workspace-api] npm install failed:", err.message);
@@ -190,30 +209,26 @@ async function handleApi(req, res) {
     const body = JSON.parse(await readBody(req));
     const message = body.message || "Update from CloseHack AI Studio";
 
-    const execOpts = { cwd: WORKSPACE_DIR, stdio: "pipe", maxBuffer: 10 * 1024 * 1024 };
-
     try {
       // Configure git
-      execSync('git config user.email "studio@closehack.com"', execOpts);
-      execSync('git config user.name "CloseHack Studio"', execOpts);
-      execSync("git config gc.auto 0", execOpts); // disable auto-gc to prevent ENOBUFS
+      await run('git config user.email "studio@closehack.com"');
+      await run('git config user.name "CloseHack Studio"');
 
       // Stage all changes
-      execSync("git add -A", execOpts);
+      await run("git add -A");
 
       // Check if there are changes to commit
       try {
-        execSync("git diff --cached --quiet", execOpts);
-        // If the above succeeds, there are no staged changes
+        await run("git diff --cached --quiet");
         json(res, 200, { pushed: false, message: "No changes to commit" });
         return;
       } catch {
         // There are staged changes — this is expected
       }
 
-      execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, execOpts);
-
-      execSync("git push origin main", { ...execOpts, timeout: 120000 });
+      const safeMsg = message.replace(/"/g, '\\"');
+      await run(`git commit -m "${safeMsg}"`);
+      await run("git push origin main");
 
       json(res, 200, { pushed: true, message });
     } catch (err) {
