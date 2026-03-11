@@ -190,17 +190,19 @@ async function handleApi(req, res) {
     const body = JSON.parse(await readBody(req));
     const message = body.message || "Update from CloseHack AI Studio";
 
+    const execOpts = { cwd: WORKSPACE_DIR, stdio: "pipe", maxBuffer: 10 * 1024 * 1024 };
+
     try {
       // Configure git user for commits
-      execSync('git config user.email "studio@closehack.com"', { cwd: WORKSPACE_DIR });
-      execSync('git config user.name "CloseHack Studio"', { cwd: WORKSPACE_DIR });
+      execSync('git config user.email "studio@closehack.com"', execOpts);
+      execSync('git config user.name "CloseHack Studio"', execOpts);
 
       // Stage all changes
-      execSync("git add -A", { cwd: WORKSPACE_DIR });
+      execSync("git add -A", execOpts);
 
       // Check if there are changes to commit
       try {
-        execSync("git diff --cached --quiet", { cwd: WORKSPACE_DIR });
+        execSync("git diff --cached --quiet", execOpts);
         // If the above succeeds, there are no staged changes
         json(res, 200, { pushed: false, message: "No changes to commit" });
         return;
@@ -208,11 +210,9 @@ async function handleApi(req, res) {
         // There are staged changes — this is expected
       }
 
-      execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, {
-        cwd: WORKSPACE_DIR,
-      });
+      execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, execOpts);
 
-      execSync("git push origin main", { cwd: WORKSPACE_DIR });
+      execSync("git push origin main", { ...execOpts, timeout: 30000 });
 
       json(res, 200, { pushed: true, message });
     } catch (err) {
