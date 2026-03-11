@@ -98,6 +98,17 @@ async function handleApi(req, res) {
     return;
   }
 
+  // GET /api/workspace/files/all — read ALL editable files in one request
+  if (route === "/files/all" && req.method === "GET") {
+    const filePaths = scanFiles(WORKSPACE_DIR);
+    const files = {};
+    for (const rel of filePaths) {
+      files[rel] = fs.readFileSync(path.join(WORKSPACE_DIR, rel), "utf-8");
+    }
+    json(res, 200, { files });
+    return;
+  }
+
   // GET /api/workspace/file?path=... — read a single file
   if (route === "/file" && req.method === "GET") {
     const filePath = url.searchParams.get("path");
