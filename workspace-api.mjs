@@ -213,7 +213,7 @@ async function handleApi(req, res) {
 
       execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, execOpts);
 
-      execSync("git push origin main", { ...execOpts, timeout: 30000 });
+      execSync("git push origin main", { ...execOpts, timeout: 120000 });
 
       json(res, 200, { pushed: true, message });
     } catch (err) {
