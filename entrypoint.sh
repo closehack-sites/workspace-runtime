@@ -13,5 +13,8 @@ cd /workspace
 echo "[workspace] Installing dependencies..."
 npm install
 
-echo "[workspace] Starting dev server on port 3000..."
-exec npx next dev --hostname 0.0.0.0 --port 3000
+echo "[workspace] Starting Next.js dev server on port 3001..."
+npx next dev --hostname 0.0.0.0 --port 3001 &
+
+echo "[workspace] Starting workspace API on port ${PORT:-3000}..."
+exec node /workspace-api.mjs
