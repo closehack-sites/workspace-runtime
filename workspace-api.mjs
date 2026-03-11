@@ -174,7 +174,7 @@ async function handleApi(req, res) {
     if (packageJsonChanged) {
       try {
         console.log("[workspace-api] package.json changed, running npm install...");
-        execSync("npm install", { cwd: WORKSPACE_DIR, stdio: "pipe", timeout: 60000 });
+        execSync("npm install", { cwd: WORKSPACE_DIR, stdio: "pipe", timeout: 120000, maxBuffer: 10 * 1024 * 1024 });
         console.log("[workspace-api] npm install complete");
       } catch (err) {
         console.error("[workspace-api] npm install failed:", err.message);
