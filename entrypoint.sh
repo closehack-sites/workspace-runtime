@@ -9,6 +9,7 @@ echo "[workspace] Cloning https://github.com/${REPO_NAME}..."
 git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO_NAME}.git" /workspace
 
 cd /workspace
+git config gc.auto 0
 
 echo "[workspace] Installing dependencies..."
 npm install

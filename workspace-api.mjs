@@ -193,9 +193,10 @@ async function handleApi(req, res) {
     const execOpts = { cwd: WORKSPACE_DIR, stdio: "pipe", maxBuffer: 10 * 1024 * 1024 };
 
     try {
-      // Configure git user for commits
+      // Configure git
       execSync('git config user.email "studio@closehack.com"', execOpts);
       execSync('git config user.name "CloseHack Studio"', execOpts);
+      execSync("git config gc.auto 0", execOpts); // disable auto-gc to prevent ENOBUFS
 
       // Stage all changes
       execSync("git add -A", execOpts);
