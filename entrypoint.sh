@@ -15,7 +15,7 @@ echo "[workspace] Installing dependencies..."
 npm install
 
 echo "[workspace] Starting Next.js dev server on port 3001..."
-npx next dev --hostname 0.0.0.0 --port 3001 &
+NODE_OPTIONS="--max-old-space-size=512" npx next dev --hostname 0.0.0.0 --port 3001 &
 
 echo "[workspace] Starting workspace API on port ${PORT:-3000}..."
-exec node /workspace-api.mjs
+exec node --max-old-space-size=256 /workspace-api.mjs
